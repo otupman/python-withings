@@ -34,7 +34,8 @@ __license__ = 'MIT'
 __copyright__ = 'Copyright 2012 Maxime Bouroumeau-Fuseau'
 
 __all__ = [str('WithingsCredentials'), str('WithingsAuth'), str('WithingsApi'),
-           str('WithingsMeasures'), str('WithingsMeasureGroup')]
+           str('WithingsMeasures'), str('WithingsMeasureGroup'), 
+           str('WithingsActivityGroup'), str('WithingsSleepSummaryGroup')]
 
 import requests
 from requests_oauthlib import OAuth1, OAuth1Session
@@ -143,6 +144,29 @@ class WithingsApi(object):
         r = self.request('measure', 'getmeas', kwargs)
         return WithingsMeasures(r)
 
+    def get_activity(self, **kwargs):
+        r = self.request('v2/measure', 'getactivity',kwargs)
+        return WithingsMeasures(r)
+
+    def get_daily_activity(self, **kwargs):
+        #TODO
+        r = self.request('measure', 'getactivity',kwargs)
+        return ""
+
+    def get_intraday_activity(self, **kwargs):
+        #TODO. Requires special activation.
+        r = self.request('v2/measure', 'getintradayactivity',kwargs)
+        return ""
+
+    def get_sleep(self, **kwargs):
+        #TODO
+        r = self.request('v2/sleep', 'get',kwargs)
+        return ""        
+
+    def get_sleep_summary(self, **kwargs):
+        r = self.request('v2/sleep', 'getsummary',kwargs)
+        return WithingsMeasures(r)
+
     def subscribe(self, callback_url, comment, appli=1):
         params = {'callbackurl': callback_url,
                   'comment': comment,
@@ -168,8 +192,37 @@ class WithingsApi(object):
 
 class WithingsMeasures(list):
     def __init__(self, data):
-        super(WithingsMeasures, self).__init__([WithingsMeasureGroup(g) for g in data['measuregrps']])
-        self.updatetime = datetime.datetime.fromtimestamp(data['updatetime'])
+        #get_activity() condition
+        if 'activities' in data:
+            super(WithingsMeasures, self).__init__([WithingsActivityGroup(g) for g in data['activities']])
+        #get_sleep_summary() condition
+        elif 'series' in data and 'more' in data:
+            super(WithingsMeasures, self).__init__([WithingsSleepSummaryGroup({"series":g,"more":data['more']}) for g in data['series']])
+        #get_measures() condition
+        else:
+            super(WithingsMeasures, self).__init__([WithingsMeasureGroup({"data":g,"timezone":data["timezone"]}) for g in data['measuregrps']])
+            self.updatetime = datetime.datetime.fromtimestamp(data['updatetime'])
+            self.timezone = data["timezone"]
+
+
+class WithingsActivityGroup(object):
+    def __init__(self, data):
+        self.data = data
+        self.date = data['date']
+        self.timezone = data['timezone']
+        self.totalcalories = data['totalcalories']
+
+
+class WithingsSleepSummaryGroup():
+    def __init__(self, data):
+        self.more = data['more']
+        data = data['series']
+        self.data = data
+        self.id = data['id']
+        self.date = data['date']
+        self.timezone = data['timezone']
+        self.modified = data['modified']
+        self.model = data['model']
 
 
 class WithingsMeasureGroup(object):
@@ -179,12 +232,16 @@ class WithingsMeasureGroup(object):
                      ('heart_pulse', 11))
 
     def __init__(self, data):
+        self.timezone = data["timezone"]
+        data =  data["data"]
+        data["timezone"] = self.timezone
         self.data = data
         self.grpid = data['grpid']
         self.attrib = data['attrib']
         self.category = data['category']
         self.date = datetime.datetime.fromtimestamp(data['date'])
         self.measures = data['measures']
+
         for n, t in self.MEASURE_TYPES:
             self.__setattr__(n, self.get_measure(t))
 
@@ -202,3 +259,4 @@ class WithingsMeasureGroup(object):
             if m['type'] == measure_type:
                 return m['value'] * pow(10, m['unit'])
         return None
+
