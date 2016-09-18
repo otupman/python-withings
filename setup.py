@@ -1,17 +1,27 @@
 #!/usr/bin/env python
-from setuptools import setup
+# -*- coding: utf-8 -*-
+
+from setuptools import setup, find_packages
 
 setup(
     name='withings',
-    version='0.3',
+    version='0.4.0',
     description="Library for the Withings API",
     author='Maxime Bouroumeau-Fuseau',
     author_email='maxime.bouroumeau@gmail.com',
     url="https://github.com/maximebf/python-withings",
-    license = "MIT License",
-    packages = ['withings'],
-    install_requires = ['requests', 'requests-oauth'],
-    scripts=['bin/withings'],
-    keywords="withings",
-    zip_safe = True
+    license="MIT License",
+    packages=find_packages('src'),
+    package_dir={'': 'src'},
+    install_requires=[
+        'click',
+        'requests',
+        'requests-oauth',
+        'requests-oauthlib',
+    ],
+    entry_points={
+        'console_scripts': [
+            'withings = withings.__main__:main',
+        ]
+    },
 )

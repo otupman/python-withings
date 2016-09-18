@@ -1,24 +1,31 @@
 #!/usr/bin/env python
-from withings import *
-from optparse import OptionParser
-import sys
+# -*- coding: utf-8 -*-
+
+from __future__ import print_function
+
 import os
+import sys
+from optparse import OptionParser
 
-try:
-    import configparser
-except ImportError:  # Python 2.x fallback
-    import ConfigParser as configparser
-
+from withings._compat import configparser, input
+from withings.core import (WithingsApi, WithingsAuth, WithingsCredentials,
+                           WithingsMeasureGroup)
 
 parser = OptionParser()
-parser.add_option('-k', '--consumer-key', dest='consumer_key', help="Consumer Key")
-parser.add_option('-s', '--consumer-secret', dest='consumer_secret', help="Consumer Secret")
-parser.add_option('-a', '--access-token', dest='access_token', help="Access Token")
-parser.add_option('-t', '--access-token-secret', dest='access_token_secret', help="Access Token Secret")
-parser.add_option('-u', '--userid', dest='user_id', help="User ID")
-parser.add_option('-c', '--config', dest='config', help="Config file")
+parser.add_option('-k', '--consumer-key',
+                  dest='consumer_key', help="Consumer Key")
+parser.add_option('-s', '--consumer-secret',
+                  dest='consumer_secret', help="Consumer Secret")
+parser.add_option('-a', '--access-token',
+                  dest='access_token', help="Access Token")
+parser.add_option('-t', '--access-token-secret',
+                  dest='access_token_secret', help="Access Token Secret")
+parser.add_option('-u', '--userid',
+                  dest='user_id', help="User ID")
+parser.add_option('-c', '--config',
+                  dest='config', help="Config file")
 
-(options, args) = parser.parse_args()
+options, args = parser.parse_args()
 
 if len(args) == 0:
     print("Missing command!")
@@ -36,25 +43,31 @@ if not options.config is None and os.path.exists(options.config):
 
 if options.consumer_key is None or options.consumer_secret is None:
     print("You must provide a consumer key and consumer secret")
-    print("Create an Oauth application here: https://oauth.withings.com/partner/add")
+    print("Create an Oauth application here: "
+          "https://oauth.withings.com/partner/add")
     sys.exit(1)
 
-if options.access_token is None or options.access_token_secret is None or options.user_id is None:
+if (options.access_token is None or
+            options.access_token_secret is None or
+            options.user_id is None):
     print("Missing authentification information!")
     print("Starting authentification process...")
     auth = WithingsAuth(options.consumer_key, options.consumer_secret)
     authorize_url = auth.get_authorize_url()
-    print("Go to %s allow the app and copy your oauth_verifier") % authorize_url
-    oauth_verifier = raw_input('Please enter your oauth_verifier: ')
+    print("Go to %s allow the app and copy "
+          "your oauth_verifier") % authorize_url
+    oauth_verifier = input('Please enter your oauth_verifier: ')
     creds = auth.get_credentials(oauth_verifier)
     options.access_token = creds.access_token
     options.access_token_secret = creds.access_token_secret
     options.user_id = creds.user_id
     print("")
 else:
-    creds = WithingsCredentials(options.access_token, options.access_token_secret,
-                                    options.consumer_key, options.consumer_secret,
-                                    options.user_id)
+    creds = WithingsCredentials(options.access_token,
+                                options.access_token_secret,
+                                options.consumer_key,
+                                options.consumer_secret,
+                                options.user_id)
 
 client = WithingsApi(creds)
 
@@ -74,11 +87,9 @@ if command == 'saveconfig':
     print("Config file saved to %s" % options.config)
     sys.exit(0)
 
-
 if command == 'userinfo':
     print(client.get_user())
     sys.exit(0)
-
 
 if command == 'last':
     m = client.get_measures(limit=1)[0]
@@ -88,21 +99,19 @@ if command == 'last':
                 print(m.get_measure(t))
     else:
         for n, t in WithingsMeasureGroup.MEASURE_TYPES:
-            print("%s: %s" % (n.replace('_', ' ').capitalize(), m.get_measure(t)))
+            print("%s: %s" % (n.replace('_', ' ').capitalize(),
+                              m.get_measure(t)))
     sys.exit(0)
-
 
 if command == 'subscribe':
     client.subscribe(args[0], args[1])
     print("Subscribed %s" % args[0])
     sys.exit(0)
 
-
 if command == 'unsubscribe':
     client.unsubscribe(args[0])
     print("Unsubscribed %s" % args[0])
     sys.exit(0)
-
 
 if command == 'list_subscriptions':
     l = client.list_subscriptions()
@@ -113,7 +122,7 @@ if command == 'list_subscriptions':
         print("No subscriptions")
     sys.exit(0)
 
-
 print("Unknown command")
-print("Available commands: saveconfig, userinfo, last, subscribe, unsubscribe, list_subscriptions")
+print("Available commands: saveconfig, userinfo, last, subscribe, "
+      "unsubscribe, list_subscriptions")
 sys.exit(1)
