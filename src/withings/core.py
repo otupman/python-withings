@@ -1,46 +1,26 @@
 # -*- coding: utf-8 -*-
 
-import datetime
+import datetime as dt
 import json
 
 import requests
 from requests_oauthlib import OAuth1, OAuth1Session
 
+from withings.exceptions import WithingsError
+
 
 class WithingsCredentials(object):
-    def __init__(self, access_token=None, access_token_secret=None,
-                 consumer_key=None, consumer_secret=None, user_id=None):
+    def __init__(self,
+                 access_token=None,
+                 access_token_secret=None,
+                 consumer_key=None,
+                 consumer_secret=None,
+                 user_id=None):
         self.access_token = access_token
         self.access_token_secret = access_token_secret
         self.consumer_key = consumer_key
         self.consumer_secret = consumer_secret
         self.user_id = user_id
-
-
-class WithingsError(Exception):
-    STATUS_CODES = {
-        # Response status codes as defined in documentation
-        # http://oauth.withings.com/api/doc
-        0: "Operation was successful",
-        247: "The userid provided is absent, or incorrect",
-        250: "The provided userid and/or Oauth credentials do not match",
-        286: "No such subscription was found",
-        293: "The callback URL is either absent or incorrect",
-        294: "No such subscription could be deleted",
-        304: "The comment is either absent or incorrect",
-        305: "Too many notifications are already set",
-        342: "The signature (using Oauth) is invalid",
-        343: "Wrong Notification Callback Url don't exist",
-        601: "Too Many Request",
-        2554: "Wrong action or wrong webservice",
-        2555: "An unknown error occurred",
-        2556: "Service is not defined",
-    }
-
-    def __init__(self, status):
-        super(WithingsError, self).__init__(u'{}: {}'.format(
-            status, WithingsError.STATUS_CODES[status]))
-        self.status = status
 
 
 class WithingsAuth(object):
@@ -57,13 +37,14 @@ class WithingsAuth(object):
         oauth = OAuth1Session(
             self.consumer_key,
             client_secret=self.consumer_secret,
-            callback_uri=self.callback_uri)
+            callback_uri=self.callback_uri
+        )
 
-        tokens = oauth.fetch_request_token('%s/request_token' % self.URL)
-        self.oauth_token = tokens['oauth_token']
-        self.oauth_secret = tokens['oauth_token_secret']
+        token = oauth.fetch_request_token('{0}/request_token'.format(self.URL))
+        self.oauth_token = token['oauth_token']
+        self.oauth_secret = token['oauth_token_secret']
 
-        return oauth.authorization_url('%s/authorize' % self.URL)
+        return oauth.authorization_url('{0}/authorize'.format(self.URL))
 
     def get_credentials(self, oauth_verifier):
         oauth = OAuth1Session(
@@ -71,14 +52,17 @@ class WithingsAuth(object):
             client_secret=self.consumer_secret,
             resource_owner_key=self.oauth_token,
             resource_owner_secret=self.oauth_secret,
-            verifier=oauth_verifier)
-        tokens = oauth.fetch_access_token('%s/access_token' % self.URL)
+            verifier=oauth_verifier
+        )
+
+        tokens = oauth.fetch_access_token('{0}/access_token'.format(self.URL))
         return WithingsCredentials(
             access_token=tokens['oauth_token'],
             access_token_secret=tokens['oauth_token_secret'],
             consumer_key=self.consumer_key,
             consumer_secret=self.consumer_secret,
-            user_id=tokens['userid'])
+            user_id=tokens['userid']
+        )
 
 
 class WithingsApi(object):
@@ -91,7 +75,8 @@ class WithingsApi(object):
             credentials.consumer_secret,
             credentials.access_token,
             credentials.access_token_secret,
-            signature_type='query')
+            signature_type='query'
+        )
         self.client = requests.Session()
         self.client.auth = self.oauth
         self.client.params.update({'userid': credentials.user_id})
@@ -100,8 +85,8 @@ class WithingsApi(object):
         if params is None:
             params = {}
         params['action'] = action
-        r = self.client.request(method, '%s/%s' % (
-            self.URL, service), params=params)
+        r = self.client.request(method, '{0}/{1}'.format(self.URL, service),
+                                params=params)
         response = json.loads(r.content.decode())
         if response['status'] != 0:
             raise WithingsError(response['status'])
@@ -121,17 +106,17 @@ class WithingsApi(object):
     def get_daily_activity(self, **kwargs):
         # TODO
         r = self.request('measure', 'getactivity', kwargs)
-        return ""
+        return
 
     def get_intraday_activity(self, **kwargs):
         # TODO. Requires special activation.
         r = self.request('v2/measure', 'getintradayactivity', kwargs)
-        return ""
+        return
 
     def get_sleep(self, **kwargs):
         # TODO
         r = self.request('v2/sleep', 'get', kwargs)
-        return ""
+        return
 
     def get_sleep_summary(self, **kwargs):
         r = self.request('v2/sleep', 'getsummary', kwargs)
@@ -144,11 +129,13 @@ class WithingsApi(object):
         self.request('notify', 'subscribe', params)
 
     def unsubscribe(self, callback_url, appli=1):
-        params = {'callbackurl': callback_url, 'appli': appli}
+        params = {'callbackurl': callback_url,
+                  'appli': appli}
         self.request('notify', 'revoke', params)
 
     def is_subscribed(self, callback_url, appli=1):
-        params = {'callbackurl': callback_url, 'appli': appli}
+        params = {'callbackurl': callback_url,
+                  'appli': appli}
         try:
             self.request('notify', 'get', params)
             return True
@@ -168,17 +155,14 @@ class WithingsMeasures(list):
                 [WithingsActivityGroup(g) for g in data['activities']])
         # get_sleep_summary() condition
         elif 'series' in data and 'more' in data:
-            super(WithingsMeasures, self).__init__(
-                [WithingsSleepSummaryGroup({"series": g, "more": data['more']})
-                 for g in data['series']])
+            super(WithingsMeasures, self).__init__([WithingsSleepSummaryGroup(
+                {"series": g, "more": data['more']}) for g in data['series']])
         # get_measures() condition
         else:
-            super(WithingsMeasures, self).__init__(
-                [WithingsMeasureGroup(
-                    {"data": g, "timezone": data["timezone"]})
-                 for g in data['measuregrps']])
-            self.updatetime = datetime.datetime.fromtimestamp(
-                data['updatetime'])
+            super(WithingsMeasures, self).__init__([WithingsMeasureGroup(
+                {"data": g, "timezone": data["timezone"]}
+            ) for g in data['measuregrps']])
+            self.updatetime = dt.datetime.fromtimestamp(data['updatetime'])
             self.timezone = data["timezone"]
 
 
@@ -190,7 +174,7 @@ class WithingsActivityGroup(object):
         self.totalcalories = data['totalcalories']
 
 
-class WithingsSleepSummaryGroup():
+class WithingsSleepSummaryGroup(object):
     def __init__(self, data):
         self.more = data['more']
         data = data['series']
@@ -222,7 +206,7 @@ class WithingsMeasureGroup(object):
         self.grpid = data['grpid']
         self.attrib = data['attrib']
         self.category = data['category']
-        self.date = datetime.datetime.fromtimestamp(data['date'])
+        self.date = dt.datetime.fromtimestamp(data['date'])
         self.measures = data['measures']
 
         for n, t in self.MEASURE_TYPES:

@@ -32,7 +32,7 @@ if len(args) == 0:
     sys.exit(1)
 command = args.pop(0)
 
-if not options.config is None and os.path.exists(options.config):
+if options.config is not None and os.path.exists(options.config):
     config = configparser.ConfigParser(vars(options))
     config.read(options.config)
     options.consumer_key = config.get('withings', 'consumer_key')
@@ -52,16 +52,19 @@ if (options.access_token is None or
             options.user_id is None):
     print("Missing authentification information!")
     print("Starting authentification process...")
+
     auth = WithingsAuth(options.consumer_key, options.consumer_secret)
     authorize_url = auth.get_authorize_url()
-    print("Go to %s allow the app and copy "
-          "your oauth_verifier") % authorize_url
+    print("Go to {0} allow the app and copy "
+          "your oauth_verifier").format(authorize_url)
+
     oauth_verifier = input('Please enter your oauth_verifier: ')
     creds = auth.get_credentials(oauth_verifier)
     options.access_token = creds.access_token
     options.access_token_secret = creds.access_token_secret
     options.user_id = creds.user_id
-    print("")
+    print('')
+
 else:
     creds = WithingsCredentials(options.access_token,
                                 options.access_token_secret,
@@ -84,7 +87,7 @@ if command == 'saveconfig':
     config.set('withings', 'user_id', options.user_id)
     with open(options.config, 'wb') as f:
         config.write(f)
-    print("Config file saved to %s" % options.config)
+    print("Config file saved to {0}".format(options.config))
     sys.exit(0)
 
 if command == 'userinfo':
@@ -99,25 +102,25 @@ if command == 'last':
                 print(m.get_measure(t))
     else:
         for n, t in WithingsMeasureGroup.MEASURE_TYPES:
-            print("%s: %s" % (n.replace('_', ' ').capitalize(),
-                              m.get_measure(t)))
+            print("{0}: {1}".format(n.replace('_', ' ').capitalize(),
+                                    m.get_measure(t)))
     sys.exit(0)
 
 if command == 'subscribe':
     client.subscribe(args[0], args[1])
-    print("Subscribed %s" % args[0])
+    print("Subscribed {0}".format(args[0]))
     sys.exit(0)
 
 if command == 'unsubscribe':
     client.unsubscribe(args[0])
-    print("Unsubscribed %s" % args[0])
+    print("Unsubscribed {0}".format(args[0]))
     sys.exit(0)
 
 if command == 'list_subscriptions':
     l = client.list_subscriptions()
     if len(l) > 0:
         for s in l:
-            print(" - %s " % s['comment'])
+            print(" - {0} ".format(s['comment']))
     else:
         print("No subscriptions")
     sys.exit(0)
